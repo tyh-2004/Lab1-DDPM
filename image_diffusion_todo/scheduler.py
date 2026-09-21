@@ -211,7 +211,9 @@ class DDPMScheduler(BaseScheduler):
         ######## TODO ########
         # DO NOT change the code outside this part.
         # Assignment 1. Implement the DDPM forward step.
-        x_t = None
+        alphas_prod_t = extract(self.var_scheduler.alphas_cumprod, t, x0)
+        xt = torch.sqrt(alphas_prod_t) * x0 + torch.sqrt(1.0 - alphas_prod_t) * noise
+
         #######################
 
         return x_t, eps
