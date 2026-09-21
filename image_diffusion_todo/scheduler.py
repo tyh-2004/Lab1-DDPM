@@ -36,13 +36,23 @@ class BaseScheduler(nn.Module):
         elif mode == "cosine":
             ######## TODO ########
             # Implement the cosine beta schedule (Nichol & Dhariwal, 2021).
+            # steps=num_train_timesteps ( 擴散模型在訓練時使用的總時間步數 T )
             # Hint:
             # 1. Define alphā_t = f(t/T) where f is a cosine schedule:
             #       alphā_t = cos^2( ( (t/T + s) / (1+s) ) * (π/2) )
             #    with s = 0.008 (a small constant for stability).
+            s = 0.008
             # 2. Convert alphā_t into betas using:
             #       beta_t = 1 - alphā_t / alphā_{t-1}
+            steps = torch.arange(num_train_timesteps + 1, dtype=torch.float32)
+            alpha_bar = torch.cos(((steps / num_train_timesteps + s) / (1 + s)) * (torch.pi / 2)) ** 2
+            alpha_bar = alpha_bar / alpha_bar[0]
+            T = self.num_train_timesteps
+            betas = 1 - (alpha_bar[1 : T + 1] / alpha_bar[0 : T])
+            # betas = 1.0 - alpha_bar[1:] / alpha_bar[:-1] 
+            # [1:] 代表「從索引 1 一路切到最尾端」，[:-1] 代表「從頭開始切，切到倒數第 1 個元素之前（不含最後一個）」。
             # 3. Clip beta_t to at most 0.999 (singularity at t = T).
+            betas = torch.clamp(betas, max = 0.999) # 將輸入的所有元素數值限制在指定的最小值固定為正)與最大值之間
             # 4. Return betas as a tensor of shape [num_train_timesteps].
             raise NotImplementedError("TODO: Implement cosine beta schedule here!")
                
