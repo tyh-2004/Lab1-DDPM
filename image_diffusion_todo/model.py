@@ -112,10 +112,12 @@ class DiffusionModule(nn.Module):
             ######## TODO ########
             # Assignment 2. Implement the classifier-free guidance.
             # Specifically, given a tensor of shape (batch_size,) containing class labels,
-            # create a tensor of shape (2*batch_size,) where the first half is filled with zeros (i.e., null condition).
+            # create a tensor of shape (2*batch_size,) where the first half is filled with zeros (i.e., null condition == uncondition).
             assert class_label is not None
             assert len(class_label) == batch_size, f"len(class_label) != batch_size. {len(class_label)} != {batch_size}"
             raise NotImplementedError("TODO")
+            class_label = class_label.to(self.device)
+            class_label = torch.cat([torch.zeros_like(class_label), class_label], dim=0)
             #######################
 
         traj = [x_T]
