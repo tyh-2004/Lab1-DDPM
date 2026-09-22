@@ -141,15 +141,30 @@ class DDPMScheduler(BaseScheduler):
         ######## TODO ########
         # 1. Extract beta_t, alpha_t, alpha_bar_t, and alpha_bar_{t-1} from the
         #    scheduler (ᾱ_{t-1} = 1 at t = 0).
+        alpha_bar_t = self.alphas_cumprod[t]
+        alpha_bar_prev = 1.0 if t == 0 else self.alphas_cumprod[t - 1]
+        beta_t = self.betas[t]
+        alpha_t = self.alphas[t]
         # 2. Convert the predicted noise into the predicted clean sample
         #       x̂₀ = (x_t - √(1-ᾱ_t) * ε̂_θ) / √ᾱ_t
+        x0_pred = ( x_t - torch.sqrt( 1.0 - alpha_bar_t) * eps_theta) / torch.sqrt( alpha_bar_t)
         #    and clamp it to [-1, 1].
+        x0_pred = torch.clamp( x0_pred, -1.0, 1.0)
         # 3. Compute the posterior mean
         #       \tilde{μ}_t = (√ᾱ_{t-1}·β_t/(1-ᾱ_t)) * x̂₀ + (√α_t·(1-ᾱ_{t-1})/(1-ᾱ_t)) * x_t.
+        # x0, xt的權重係數
+        coef_x0 = (torch.sqrt(alpha_bar_prev) * beta_t / (1.0 - alpha_bar_t))
+        coef_xt = (torch.sqrt(alpha_t) * (1.0 - alpha_bar_prev) / (1.0 - alpha_bar_t))
+        posterior_mean = coef_x0 * x0_pred + coef_xt * x_t
         # 4. Compute the posterior variance \tilde{β}_t = ((1-ᾱ_{t-1})/(1-ᾱ_t)) * β_t.
-        # 5. Add Gaussian noise scaled by √(\tilde{β}_t) unless t == 0.
+        posterior_var = ((1.0 - alpha_bar_prev) / (1.0 - alpha_bar_t) * beta_t)
+        sigmas = torch.sqrt(posterior_var) # 不為負
+        # 5. Add Gaussian noise scaled by √(\tilde{β}_t) unless t == 0. # 反向採樣的隨機探索項
+        noise = torch.randn_like(x_t) # 抽樣標準高斯隨機變數 z ~ N(0, I)
+        nonzero_mask = (t != 0).float().reshape(-1, 1, 1, 1) # 當 t == 0 時，已經到達最後一步，不應該再加入隨機噪聲
+        noise_term = (nonzero_mask) * torch.sqrt(posterior_var) * noise
         # 6. Return the final sample at t-1.
-        sample_prev = None
+        sample_prev = posterior_mean + noise_term
         #######################
         return sample_prev
 
