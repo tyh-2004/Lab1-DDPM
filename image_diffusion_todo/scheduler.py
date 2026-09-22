@@ -182,8 +182,28 @@ class DDPMScheduler(BaseScheduler):
         """
         ######## TODO ########
         # Remember to clamp x0_pred to [-1, 1], as in step_predict_noise.
-
-        sample_prev = None
+        x0_pred = torch.clamp(x0_pred, -1.0, 1.0)
+        # 取得posterior mean所需變數，每個 batch 的 t 可能不同，所以使用 extract
+        beta_t = extract(self.betas, t, x_t)
+        alpha_t = extract(self.alphas, t, x_t)
+        alpha_bar_t = extract(self.alphas_cumprod, t, x_t)
+        # 取得 alpha_bar_{t-1}
+        t_prev = (t - 1).clamp(min=0)
+        alpha_bar_prev = extract(self.alphas_cumprod, t_prev, x_t,)
+        # t = 0 時，定義 alpha_bar_{t-1} = 1
+        alpha_bar_prev = torch.where(t.reshape(-1, 1, 1, 1) == 0, torch.ones_like(alpha_bar_prev), alpha_bar_prev,)
+        # 3. 計算 posterior mean
+        coef_x0 = (torch.sqrt(alpha_bar_prev) * beta_t / (1.0 - alpha_bar_t))
+        coef_xt = (torch.sqrt(alpha_t) * (1.0 - alpha_bar_prev) / (1.0 - alpha_bar_t))
+        posterior_mean = coef_x0 * x0_pred + coef_xt * x_t
+        # 4. 計算 posterior variance
+        posterior_var = ((1.0 - alpha_bar_prev) / (1.0 - alpha_bar_t) * beta_t)
+        # 5. t != 0 時才加入隨機噪音
+        noise = torch.randn_like(x_t) 
+        nonzero_mask = (t != 0).float().reshape(-1, 1, 1, 1) # 當 t == 0 時，已經到達最後一步，不應該再加入隨機噪聲
+        noise_term = (nonzero_mask) * torch.sqrt(posterior_var) * noise
+        # 6. 得到 x_{t-1}
+        sample_prev = posterior_mean + noise_term
         #######################
         return sample_prev
 
@@ -200,8 +220,20 @@ class DDPMScheduler(BaseScheduler):
             sample_prev: denoised image sample at timestep t-1
         """
         ######## TODO ########
-
-        sample_prev = None
+        posterior_mean = mean_theta
+        beta_t = extract(self.betas, t, x_t)
+        alpha_bar_t = extract(self.alphas_cumprod, t, x_t)
+        t_prev = (t - 1).clamp(min = 0)
+        # 先取得一般情況下的 alpha_bar_{t-1}
+        alpha_bar_prev = extract(self.alphas_cumprod, t_prev, x_t)
+        # 修正 t = 0 的特殊情況
+        # 數學上 alpha_bar_{-1} 定義為 1
+        alpha_bar_prev = torch.where(t.reshape(-1, 1, 1, 1) == 0, torch.ones_like(alpha_bar_prev), alpha_bar_prev)
+        posterior_var = ((1.0 - alpha_bar_prev) / (1.0 - alpha_bar_t) * beta_t)
+        noise = torch.randn_like(x_t)
+        nonzero_mask = (t != 0).float().reshape(-1, 1, 1, 1) # 當 t == 0 時，已經到達最後一步，不應該再加入隨機噪聲
+        noise_term = (nonzero_mask) * torch.sqrt(posterior_var) * noise
+        sample_prev = posterior_mean + noise_term
         #######################
         return sample_prev
 
