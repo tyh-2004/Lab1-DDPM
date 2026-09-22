@@ -54,7 +54,7 @@ class BaseScheduler(nn.Module):
             # 3. Clip beta_t to at most 0.999 (singularity at t = T).
             betas = torch.clamp(betas, max = 0.999) # 將輸入的所有元素數值限制在指定的最小值固定為正)與最大值之間
             # 4. Return betas as a tensor of shape [num_train_timesteps].
-            raise NotImplementedError("TODO: Implement cosine beta schedule here!")
+            #raise NotImplementedError("TODO: Implement cosine beta schedule here!")
                
         else:
             raise NotImplementedError(f"{mode} is not implemented.")
@@ -221,8 +221,8 @@ class DDPMScheduler(BaseScheduler):
         ######## TODO ########
         # DO NOT change the code outside this part.
         # Assignment 1. Implement the DDPM forward step.
-        alphas_prod_t = extract(self.var_scheduler.alphas_cumprod, t, x0)
-        xt = torch.sqrt(alphas_prod_t) * x0 + torch.sqrt(1.0 - alphas_prod_t) * noise
+        alphas_prod_t = extract(self.alphas_cumprod, t, x_0)
+        x_t = torch.sqrt(alphas_prod_t) * x_0 + torch.sqrt(1.0 - alphas_prod_t) * eps
 
         #######################
 
