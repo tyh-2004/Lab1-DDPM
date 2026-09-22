@@ -115,7 +115,7 @@ class DiffusionModule(nn.Module):
             # create a tensor of shape (2*batch_size,) where the first half is filled with zeros (i.e., null condition == uncondition).
             assert class_label is not None
             assert len(class_label) == batch_size, f"len(class_label) != batch_size. {len(class_label)} != {batch_size}"
-            raise NotImplementedError("TODO")
+            #raise NotImplementedError("TODO")
             class_label = class_label.to(self.device)
             class_label = torch.cat([torch.zeros_like(class_label), class_label], dim=0)
             #######################
@@ -126,7 +126,16 @@ class DiffusionModule(nn.Module):
             if do_classifier_free_guidance:
                 ######## TODO ########
                 # Assignment 2. Implement the classifier-free guidance.
-                raise NotImplementedError("TODO")
+                #raise NotImplementedError("TODO")
+                x_t_input = torch.cat([x_t, x_t], dim=0)
+                # 將合併後的影像、時間步長與類別標籤輸入神經網路
+                # 另此處傳入的 class_label 前半段通常已設為 null token
+                timestep = torch.full((2 * batch_size,), t.item(), device=self.device, dtype=torch.long)
+                net_out = self.network(x_t_input, timestep=timestep, class_label=class_label)
+                # 將網路輸出沿 batch 維度對半拆開，分別取得無條件預測與條件預測結果
+                net_out_uncond, net_out_cond = net_out.chunk(2, dim=0)
+                # 利用 guidance_scale (s) 強化符合 class_label 的特徵方向，同時壓制無條件的通用特徵
+                net_out = net_out_uncond + guidance_scale * (net_out_cond - net_out_uncond)
                 #######################
             else:
                 if class_label is not None:
