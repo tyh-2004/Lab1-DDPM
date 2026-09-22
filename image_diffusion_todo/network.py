@@ -95,7 +95,7 @@ class UNet(nn.Module):
             cemb = self.class_embedding(class_label)
             # Combine timestep information and class information.
             temb = temb + cemb
-            raise NotImplementedError("TODO")
+            #raise NotImplementedError("TODO")
             #######################
 
         # Downsampling
