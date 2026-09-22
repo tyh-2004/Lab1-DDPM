@@ -57,17 +57,11 @@ class DiffusionModule(nn.Module):
         alpha_bar_t = extract(self.var_scheduler.alphas_cumprod, t, x0)
         alpha_t = extract(self.var_scheduler.alphas, t, x0)
         beta_t = extract(self.var_scheduler.betas, t, x0)
-
-        alpha_bar_prev = torch.where(
-            t == 0,
-            torch.ones_like(alpha_bar_t),
-            extract(self.var_scheduler.alphas_cumprod, t - 1, x0),
-        )
-
-        true_mean = (
-            (torch.sqrt(alpha_bar_prev) * beta_t / (1.0 - alpha_bar_t)) * x0
-            + (torch.sqrt(alpha_t) * (1.0 - alpha_bar_prev) / (1.0 - alpha_bar_t)) * x_t
-        )
+        t_prev = (t - 1).clamp(min=0)
+        alpha_bar_prev = extract(self.var_scheduler.alphas_cumprod, t_prev, x0)
+        alpha_bar_prev = torch.where(t == 0).reshape(-1, 1, 1, 1), torch.ones_like(alpha_bar_prev), alpha_bar_prev)
+        
+        true_mean = ((torch.sqrt(alpha_bar_prev) * beta_t / (1.0 - alpha_bar_t)) * x0 + (torch.sqrt(alpha_t) * (1.0 - alpha_bar_prev) / (1.0 - alpha_bar_t)) * x_t)
         # 4. Compute the loss as MSE(predicted mean, true mean).
         loss = F.mse_loss(mean_pred, true_mean)
         ######################
